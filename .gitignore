@@ -15,8 +15,8 @@ checkpoints/
 # large / third-party (do not publish)
 # references/: copyrighted paper PDFs (~560MB)
 # data/: input images (~81MB; may be copyrighted) — remove this line to version your inputs
-references/
-data/
+# references/
+# data/
 external/
 
 # tooling / logs
