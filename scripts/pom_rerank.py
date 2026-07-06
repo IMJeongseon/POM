@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from pom.detection import ZeroShotObjectDetector, crop_with_manual_boxes
+from pom.editing import ImageEditGenerator, default_edit_model
 from pom.embedding import VisionEmbedder
 from pom.generation import FluxGenerator
 from pom.memory import build_memory_from_bboxes
@@ -23,6 +24,8 @@ def parse_args():
     parser.add_argument("--config", default="configs/dog_sequence.json")
     parser.add_argument("--run-dir", default="outputs/memory_guided/pom_rerank_dog")
     parser.add_argument("--model", default=None)
+    parser.add_argument("--generation-mode", choices=["t2i", "edit"], default="t2i", help="Use independent text-to-image generation or iterative image editing.")
+    parser.add_argument("--edit-pipeline", choices=["flux-kontext", "qwen-edit"], default="flux-kontext", help="Image editing backbone used when --generation-mode edit.")
     parser.add_argument("--candidates", type=int, default=None)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--use-detector", action="store_true")
@@ -83,19 +86,30 @@ def main():
     for path in [images_dir, memory_dir, candidates_dir, selected_dir]:
         path.mkdir(parents=True, exist_ok=True)
 
-    model_id = args.model or cfg["model"]
+    model_id = args.model or (default_edit_model(args.edit_pipeline) if args.generation_mode == "edit" else cfg["model"])
     base_seed = args.seed if args.seed is not None else cfg.get("seed", 42)
     num_candidates = args.candidates if args.candidates is not None else cfg.get("candidates", 4)
 
-    generator = FluxGenerator(
-        model_id=model_id,
-        cpu_offload=cfg.get("cpu_offload", True),
-        gpus=args.gpus,
-        device_map=args.device_map,
-        max_memory=args.max_memory,
-        verbose_device_map=args.print_device_map,
-        split_transformer=args.split_transformer,
-    )
+    if args.generation_mode == "edit":
+        generator = ImageEditGenerator(
+            model_id=model_id,
+            pipeline_name=args.edit_pipeline,
+            cpu_offload=cfg.get("cpu_offload", True),
+            gpus=args.gpus,
+            device_map=args.device_map,
+            max_memory=args.max_memory,
+            verbose_device_map=args.print_device_map,
+        )
+    else:
+        generator = FluxGenerator(
+            model_id=model_id,
+            cpu_offload=cfg.get("cpu_offload", True),
+            gpus=args.gpus,
+            device_map=args.device_map,
+            max_memory=args.max_memory,
+            verbose_device_map=args.print_device_map,
+            split_transformer=args.split_transformer,
+        )
     detector = ZeroShotObjectDetector(model=args.detector_model, threshold=args.detector_threshold) if args.use_detector else None
     embedder = None
     if args.identity_scorer == "embedding":
@@ -104,6 +118,7 @@ def main():
 
 
     first = prompts[0]
+    condition_image_path = None
     first_path = images_dir / "step_01.png"
     if args.reuse_existing and first_path.exists():
         print(f"기존 첫 이미지 재사용: {first_path}")
@@ -111,6 +126,7 @@ def main():
         generator.generate(
             first["prompt"],
             first_path,
+            image_path=condition_image_path,
             seed=base_seed,
             width=cfg.get("width", 1024),
             height=cfg.get("height", 1024),
@@ -137,6 +153,7 @@ def main():
     bank_path = memory_dir / "memory_bank.json"
     bank.to_json(bank_path)
 
+    condition_image_path = first_path
     selected = [{"step": 1, "prompt": first["prompt"], "image": str(first_path)}]
     all_scores = []
 
@@ -151,6 +168,7 @@ def main():
             generator.generate(
                 prompt,
                 cand_path,
+                image_path=condition_image_path,
                 seed=seed,
                 width=cfg.get("width", 1024),
                 height=cfg.get("height", 1024),
@@ -202,6 +220,7 @@ def main():
         best = max(candidate_scores, key=lambda item: item["mean_identity"])
         selected_path = selected_dir / f"step_{step_index:02d}.png"
         shutil.copyfile(best["image_path"], selected_path)
+        condition_image_path = selected_path
         selected.append(
             {
                 "step": step_index,

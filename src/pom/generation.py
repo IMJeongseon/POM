@@ -98,6 +98,7 @@ class FluxGenerator:
         out_path: str | Path,
         *,
         seed: int,
+        image_path: str | Path | None = None,
         width: int = 1024,
         height: int = 1024,
         steps: int | None = None,

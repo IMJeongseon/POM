@@ -26,10 +26,27 @@ Main script:
 python3 scripts/pom_rerank.py --config configs/dog_sequence.json --use-detector
 ```
 
+Iterative image-editing mode:
+
+```bash
+python3 scripts/pom_rerank.py \
+  --config configs/dog_sequence.json \
+  --generation-mode edit \
+  --edit-pipeline flux-kontext \
+  --use-detector
+```
+
 Default model:
 
 ```text
 black-forest-labs/FLUX.1-dev
+```
+
+Default edit models:
+
+```text
+flux-kontext -> black-forest-labs/FLUX.1-Kontext-dev
+qwen-edit    -> Qwen/Qwen-Image-Edit
 ```
 
 Default output:
