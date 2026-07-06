@@ -170,20 +170,13 @@ def main():
                 continue
 
             crop_dir = candidates_dir / f"step_{step_index:02d}" / f"cand_{cand_idx:02d}_crops"
+            missing_objects = []
             if detector:
                 labels = {obj_id: next((obj.get("detect_label", obj["label"]) for obj in cfg["objects"] if obj["id"] == obj_id), bank.get(obj_id).label) for obj_id in target_objects}
-                try:
-                    crops = detector.crop_objects(cand_path, labels, crop_dir)
-                except RuntimeError as exc:
-                    print(f"후보 탐지 실패, identity 0 처리: {cand_path} ({exc})")
-                    candidate_scores.append({
-                        "image_path": str(cand_path),
-                        "mean_identity": 0.0,
-                        "object_scores": [],
-                        "seed": seed,
-                        "detector_error": str(exc),
-                    })
-                    continue
+                crops = detector.crop_objects(cand_path, labels, crop_dir, require_all=False)
+                missing_objects = crops.pop("__missing__", [])
+                if missing_objects:
+                    print(f"후보 일부 탐지 실패, missing 0점 반영: {cand_path} ({', '.join(missing_objects)})")
             else:
                 manual = step_cfg.get("candidate_bboxes", {}).get(str(cand_idx))
                 if manual is None:
@@ -192,9 +185,18 @@ def main():
                     )
                 crops = crop_with_manual_boxes(cand_path, manual, crop_dir)
 
-            score = score_candidate(cand_path, bank, crops, scorer=args.identity_scorer, embedder=embedder)
+            score = score_candidate(
+                cand_path,
+                bank,
+                crops,
+                scorer=args.identity_scorer,
+                embedder=embedder,
+                target_object_ids=target_objects,
+            )
             payload = asdict(score)
             payload["seed"] = seed
+            if missing_objects:
+                payload["missing_objects"] = missing_objects
             candidate_scores.append(payload)
 
         best = max(candidate_scores, key=lambda item: item["mean_identity"])

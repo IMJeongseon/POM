@@ -54,6 +54,7 @@ class ZeroShotObjectDetector:
         image_path: str | Path,
         object_labels: dict[str, str],
         out_dir: str | Path,
+        require_all: bool = True,
     ) -> dict[str, str]:
         image = Image.open(image_path).convert("RGB")
         out_dir = Path(out_dir)
@@ -70,7 +71,9 @@ class ZeroShotObjectDetector:
             image.crop(tuple(bbox)).save(crop_path)
             crops[object_id] = str(crop_path)
 
-        if missing:
+        if missing and require_all:
             raise RuntimeError("객체 탐지 실패: " + ", ".join(missing))
+        if missing:
+            crops["__missing__"] = missing
         return crops
 

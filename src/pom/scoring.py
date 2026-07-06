@@ -49,9 +49,24 @@ def score_candidate(
     *,
     scorer: str = "histogram",
     embedder: VisionEmbedder | None = None,
+    target_object_ids: list[str] | None = None,
 ) -> CandidateScore:
     object_scores = []
-    for object_id, candidate_crop in candidate_crops.items():
+    object_ids = target_object_ids if target_object_ids is not None else list(candidate_crops.keys())
+    for object_id in object_ids:
+        candidate_crop = candidate_crops.get(object_id)
+        if candidate_crop is None:
+            memory = bank.get(object_id)
+            object_scores.append(
+                ObjectScore(
+                    object_id=object_id,
+                    similarity=0.0,
+                    reference_crop=memory.crop_path,
+                    candidate_crop="",
+                    scorer=scorer,
+                )
+            )
+            continue
         memory = bank.get(object_id)
         if scorer == "embedding":
             if embedder is None:
