@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+from .embedding import VisionEmbedder, load_embedding
 from .memory import MemoryBank
 
 
@@ -15,6 +16,7 @@ class ObjectScore:
     similarity: float
     reference_crop: str
     candidate_crop: str
+    scorer: str = "histogram"
 
 
 @dataclass
@@ -44,18 +46,32 @@ def score_candidate(
     image_path: str | Path,
     bank: MemoryBank,
     candidate_crops: dict[str, str],
+    *,
+    scorer: str = "histogram",
+    embedder: VisionEmbedder | None = None,
 ) -> CandidateScore:
     object_scores = []
     for object_id, candidate_crop in candidate_crops.items():
         memory = bank.get(object_id)
-        ref = _image_histogram(memory.crop_path)
-        cand = _image_histogram(candidate_crop)
+        if scorer == "embedding":
+            if embedder is None:
+                raise ValueError("embedding scorer requires an embedder")
+            if not memory.embedding_path:
+                raise ValueError(f"missing embedding_path for object: {object_id}")
+            ref = load_embedding(memory.embedding_path)
+            cand = embedder.embed_image(candidate_crop)
+        elif scorer == "histogram":
+            ref = _image_histogram(memory.crop_path)
+            cand = _image_histogram(candidate_crop)
+        else:
+            raise ValueError(f"unknown scorer: {scorer}")
         object_scores.append(
             ObjectScore(
                 object_id=object_id,
                 similarity=cosine_similarity(ref, cand),
                 reference_crop=memory.crop_path,
                 candidate_crop=str(candidate_crop),
+                scorer=scorer,
             )
         )
 

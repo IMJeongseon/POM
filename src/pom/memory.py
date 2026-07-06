@@ -18,6 +18,7 @@ class ObjectMemory:
     crop_path: str
     bbox_xyxy: BBox
     description: str = ""
+    embedding_path: str | None = None
 
 
 class MemoryBank:
@@ -60,6 +61,7 @@ def build_memory_from_bboxes(
     image_path: str | Path,
     object_specs: list[dict],
     out_dir: str | Path,
+    embedder=None,
 ) -> MemoryBank:
     bank = MemoryBank()
     out_dir = Path(out_dir)
@@ -67,6 +69,12 @@ def build_memory_from_bboxes(
         object_id = spec["id"]
         bbox = tuple(spec["bbox_xyxy"])
         crop_path = crop_object(image_path, bbox, out_dir / f"{object_id}.png")
+        embedding_path = None
+        if embedder is not None:
+            embedding_path = embedder.save_embedding(
+                crop_path,
+                out_dir / "embeddings" / f"{object_id}.npy",
+            )
         bank.add(
             ObjectMemory(
                 object_id=object_id,
@@ -75,6 +83,7 @@ def build_memory_from_bboxes(
                 crop_path=str(crop_path),
                 bbox_xyxy=bbox,
                 description=spec.get("description", ""),
+                embedding_path=str(embedding_path) if embedding_path else None,
             )
         )
     return bank

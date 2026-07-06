@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from pom.detection import ZeroShotObjectDetector, crop_with_manual_boxes
+from pom.embedding import VisionEmbedder
 from pom.generation import FluxGenerator
 from pom.memory import build_memory_from_bboxes
 from pom.scoring import score_candidate
@@ -33,6 +34,9 @@ def parse_args():
     parser.add_argument("--max-memory", default=None, help="Per-device memory limit, e.g. '0:20GiB,1:22GiB,cpu:96GiB'.")
     parser.add_argument("--print-device-map", action="store_true", help="Print accelerate device maps after model loading.")
     parser.add_argument("--split-transformer", action=argparse.BooleanOptionalAction, default=True, help="Load FLUX transformer separately with device_map so its internal layers can be split across GPUs.")
+    parser.add_argument("--identity-scorer", choices=["embedding", "histogram"], default="embedding", help="Object identity scorer used for reranking.")
+    parser.add_argument("--embedding-model", default="facebook/dinov2-base", help="Frozen vision encoder used for compact object memory.")
+    parser.add_argument("--embedding-device", default="cuda", choices=["cuda", "cpu"], help="Device for the vision embedder.")
     return parser.parse_args()
 
 
@@ -46,15 +50,21 @@ def write_json(path: str | Path, payload: dict) -> None:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def rewrite_prompt(prompt: str, objects: list[dict]) -> str:
+def rewrite_prompt(prompt: str, objects: list[dict], target_object_ids: list[str]) -> str:
+    if not target_object_ids:
+        return prompt
+
+    target_ids = set(target_object_ids)
     memory_text = []
     for obj in objects:
-        description = obj.get("description", "")
+        if obj["id"] not in target_ids:
+            continue
+        description = obj.get("memory_prompt") or obj.get("description", "")
         if description:
-            memory_text.append(f"{obj['label']}: {description}")
+            memory_text.append(description)
     if not memory_text:
         return prompt
-    return prompt + " Keep object identity consistent: " + "; ".join(memory_text) + "."
+    return prompt + " Same instances: " + "; ".join(memory_text) + "."
 
 
 def candidate_seed(base_seed: int, step_index: int, candidate_index: int) -> int:
@@ -87,6 +97,9 @@ def main():
         split_transformer=args.split_transformer,
     )
     detector = ZeroShotObjectDetector(model=args.detector_model, threshold=args.detector_threshold) if args.use_detector else None
+    embedder = None
+    if args.identity_scorer == "embedding":
+        embedder = VisionEmbedder(model_id=args.embedding_model, device=args.embedding_device)
     prompts = cfg["prompts"]
 
 
@@ -120,7 +133,7 @@ def main():
             detected_specs.append(detected)
         object_specs = detected_specs
 
-    bank = build_memory_from_bboxes(first_path, object_specs, memory_dir / "objects")
+    bank = build_memory_from_bboxes(first_path, object_specs, memory_dir / "objects", embedder=embedder)
     bank_path = memory_dir / "memory_bank.json"
     bank.to_json(bank_path)
 
@@ -128,8 +141,8 @@ def main():
     all_scores = []
 
     for step_index, step_cfg in enumerate(prompts[1:], start=2):
-        prompt = rewrite_prompt(step_cfg["prompt"], cfg["objects"])
         target_objects = step_cfg.get("reappearing_objects", [])
+        prompt = rewrite_prompt(step_cfg["prompt"], cfg["objects"], target_objects)
         candidate_scores = []
 
         for cand_idx in range(num_candidates):
@@ -179,7 +192,7 @@ def main():
                     )
                 crops = crop_with_manual_boxes(cand_path, manual, crop_dir)
 
-            score = score_candidate(cand_path, bank, crops)
+            score = score_candidate(cand_path, bank, crops, scorer=args.identity_scorer, embedder=embedder)
             payload = asdict(score)
             payload["seed"] = seed
             candidate_scores.append(payload)

@@ -28,18 +28,21 @@
       "id": "dog",
       "label": "white dog",
       "description": "the same fluffy white dog from the first image, with the same body shape, fur, face, and collar",
+      "memory_prompt": "same fluffy white dog, same fur, face, body, and collar",
       "bbox_xyxy": [360, 300, 650, 790]
     },
     {
       "id": "ball",
       "label": "toy ball",
       "description": "the same small colorful toy ball from the first image, with the same color pattern and size",
+      "memory_prompt": "same small colorful toy ball, same color pattern and size",
       "bbox_xyxy": [635, 710, 730, 810]
     },
     {
       "id": "house",
       "label": "dog house",
       "description": "the same white dog house in the same yard",
+      "memory_prompt": "same white dog house",
       "bbox_xyxy": [70, 250, 360, 650]
     }
   ]
