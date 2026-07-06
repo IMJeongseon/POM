@@ -1,0 +1,46 @@
+{
+  "model": "black-forest-labs/FLUX.1-dev",
+  "seed": 42,
+  "width": 768,
+  "height": 768,
+  "steps": 50,
+  "guidance_scale": 3.5,
+  "cpu_offload": true,
+  "candidates": 4,
+  "prompts": [
+    {
+      "id": "initial_scene",
+      "prompt": "A white dog is standing in a yard with a white dog chew, a toy ball and a dog's house."
+    },
+    {
+      "id": "object_absent",
+      "prompt": "The dog grabs the ball, goes into the house, and is no longer visible. Only one single image.",
+      "reappearing_objects": []
+    },
+    {
+      "id": "object_reappears",
+      "prompt": "The dog comes out of the house carrying the ball in its mouth.",
+      "reappearing_objects": ["dog", "ball"]
+    }
+  ],
+  "objects": [
+    {
+      "id": "dog",
+      "label": "white dog",
+      "description": "the same fluffy white dog from the first image, with the same body shape, fur, face, and collar",
+      "bbox_xyxy": [360, 300, 650, 790]
+    },
+    {
+      "id": "ball",
+      "label": "toy ball",
+      "description": "the same small colorful toy ball from the first image, with the same color pattern and size",
+      "bbox_xyxy": [635, 710, 730, 810]
+    },
+    {
+      "id": "house",
+      "label": "dog house",
+      "description": "the same white dog house in the same yard",
+      "bbox_xyxy": [70, 250, 360, 650]
+    }
+  ]
+}

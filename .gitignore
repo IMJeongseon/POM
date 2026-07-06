@@ -1,35 +1,9 @@
 __pycache__/
 *.py[cod]
-*.egg-info/
-.pytest_cache/
-.ipynb_checkpoints/
 
-# data / models / outputs
 outputs/
-checkpoints/
-*.ckpt
-*.safetensors
-*.pt
-*.bin
+data/images/
+data/references/
+references/
 
-# large / third-party (do not publish)
-# references/: copyrighted paper PDFs (~560MB)
-# data/: input images (~81MB; may be copyrighted) — remove this line to version your inputs
-# references/
-# data/
-external/
-
-# tooling / logs
-scripts/codex_runs/
-*.log
-
-# venv / conda
-venv/
-.venv/
-env/
-
-# editor
-.vscode/
-.idea/
-*.swp
-.DS_Store
+.ipynb_checkpoints/
