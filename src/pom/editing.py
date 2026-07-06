@@ -40,10 +40,13 @@ class ImageEditGenerator:
     ) -> None:
         gpu_ids = parse_gpu_ids(gpus)
         if gpu_ids:
+            os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
             os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(gpu_ids)
         os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
         import torch
+        import transformers.modeling_utils as _transformers_mu
+        _transformers_mu.caching_allocator_warmup = lambda *a, **kw: None
         from diffusers import FluxKontextPipeline, QwenImageEditPipeline
 
         if not torch.cuda.is_available():

@@ -17,6 +17,9 @@ class VisionEmbedder:
 
         if device == "cuda" and not torch.cuda.is_available():
             device = "cpu"
+        elif device == "cuda" and torch.cuda.device_count() > 1:
+            free = [torch.cuda.mem_get_info(i)[0] for i in range(torch.cuda.device_count())]
+            device = f"cuda:{free.index(max(free))}"
 
         self.torch = torch
         self.device = device

@@ -58,6 +58,7 @@ class FluxGenerator:
     ) -> None:
         gpu_ids = parse_gpu_ids(gpus)
         if gpu_ids:
+            os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
             os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(gpu_ids)
         os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 

@@ -16,6 +16,7 @@ def early_set_cuda_visible_devices(argv):
         return
     import os
 
+    os.environ.setdefault("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
     os.environ["CUDA_VISIBLE_DEVICES"] = argv[idx + 1]
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
