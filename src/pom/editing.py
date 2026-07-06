@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from .generation import parse_gpu_ids, parse_max_memory
+from .generation import parse_gpu_ids, parse_max_memory, validate_visible_cuda_devices
 
 
 def default_edit_steps(model_id: str) -> int:
@@ -58,6 +58,7 @@ class ImageEditGenerator:
 
         if device_map is None and len(gpu_ids) > 1:
             device_map = "balanced"
+        validate_visible_cuda_devices(torch, gpu_ids, device_map)
 
         load_kwargs = {"torch_dtype": torch.bfloat16}
         parsed_max_memory = parse_max_memory(max_memory)

@@ -8,6 +8,20 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
+def early_set_cuda_visible_devices(argv):
+    if "--gpus" not in argv:
+        return
+    idx = argv.index("--gpus")
+    if idx + 1 >= len(argv):
+        return
+    import os
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = argv[idx + 1]
+    os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
+
+
+early_set_cuda_visible_devices(sys.argv)
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 

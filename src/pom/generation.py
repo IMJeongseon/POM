@@ -27,6 +27,24 @@ def parse_max_memory(max_memory: str | None) -> dict | None:
     return parsed
 
 
+def validate_visible_cuda_devices(torch, gpu_ids: list[str], device_map: str | None) -> None:
+    visible_count = torch.cuda.device_count()
+    if gpu_ids and visible_count < len(gpu_ids):
+        raise RuntimeError(
+            "Requested GPUs are not all visible to PyTorch/CUDA. "
+            f"--gpus={','.join(gpu_ids)} requested {len(gpu_ids)} device(s), "
+            f"but torch sees {visible_count}. "
+            "Avoid unhealthy GPUs and remember that CUDA_VISIBLE_DEVICES remaps selected "
+            "physical GPUs to logical ids 0..N-1."
+        )
+    if device_map == "balanced" and visible_count < 2:
+        raise RuntimeError(
+            "device_map='balanced' needs at least two visible CUDA devices, "
+            f"but torch sees {visible_count}. Use a valid multi-GPU set or switch to "
+            "single-GPU/CPU offload settings."
+        )
+
+
 class FluxGenerator:
     def __init__(
         self,
@@ -52,6 +70,7 @@ class FluxGenerator:
         self.model_id = model_id
         if device_map is None and len(gpu_ids) > 1:
             device_map = "balanced"
+        validate_visible_cuda_devices(torch, gpu_ids, device_map)
 
         parsed_max_memory = parse_max_memory(max_memory)
         load_kwargs = {"torch_dtype": torch.bfloat16}
